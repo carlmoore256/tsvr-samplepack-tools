@@ -1,6 +1,6 @@
 SAMPLE_RATE = 44100
 
-AUDIO_FILE_TYPES = [".wav", ".mp3", ".flac", ".ogg"]
+AUDIO_FILE_TYPES = [".wav", ".mp3", ".flac", ".ogg", ".aif", ".m4a"]
 
 SAMPLEPACKS_ROOT = "E:/tsvr-samplepack-tools/samplepacks"
 

@@ -1,8 +1,10 @@
 from pydub import AudioSegment
 import os
+import pandas as pd
 from audio_file import read_samples, write_samples
-from signal_processing.features import rms, db_min_max
+from signal_processing.features import rms, db_min_max, extract_features, windowed_mfccs
 from signal_processing.signal_math import rms_to_db
+from signal_processing.windowing import window_samples
 from audio_file import get_audio_metadata, audio_file_info
 from definitions import SAMPLE_RATE
 from typing import List, Any
@@ -10,81 +12,9 @@ import numpy as np
 from utils import display_audio, save_json, load_json, get_files_of_types, check_make_dir
 import definitions
 import random
+from audio_clip import AudioClip
+import plotly.express as px
 # def preprocessor_default(audio_samples)
-
-class AudioClip:
-    def __init__(self, file, info=None, samples=None):
-        self.file = file
-        self.info = info
-        self.samples = samples
-
-    @staticmethod
-    def from_file(file):
-        info = audio_file_info(file)
-        samples = read_samples(file)
-        return AudioClip(file, info, samples)
-    
-    @staticmethod
-    def from_samples(samples, title=None):
-        if len(samples.shape) == 1:
-            samples = np.expand_dims(samples, axis=0)
-        info = {
-            "file": None,
-            "title": title,
-            "bytes": None,
-            "duration": round(len(samples) / SAMPLE_RATE, 4),
-            "channels" : samples.shape[0],
-            # "channels": 1 if len(samples.shape) == 1 else samples.shape[0],
-            "maxDBFS": round(np.max(rms_to_db(rms(samples))), 4),
-        }
-        return AudioClip(None, info, samples)
-
-    def update_info(self):
-        self.info["duration"] = round(len(self.samples) / SAMPLE_RATE, 4)
-        self.info["maxDBFS"] = round(np.max(rms_to_db(rms(self.samples))), 4)
-
-    def apply_processor(self, processor):
-        self.samples = processor(self.samples)
-        # if self.samples.shape[0] == 1:
-        #     self.samples = self.samples[0]
-        self.update_info()
-
-    def save(self, outpath, include_metadata=False):
-        write_samples(self.samples, outpath)
-        if include_metadata:
-            self.info = audio_file_info(outpath)
-            save_json(self.info, os.path.splitext(outpath)[0] + ".json")
-
-    @property
-    def channels(self):
-        return self.info["channels"]
-    
-    def convert_to_channels(self, channels):
-        if self.channels == channels:
-            return
-        if channels == 1:
-            self.samples = self.samples.mean(axis=0)
-        elif channels == 2:
-            # self.samples = np.array([self.samples[0], self.samples[0]])
-            self.samples = np.repeat(self.samples, 2, axis=0)
-        self.info["channels"] = channels
-
-    def display(self):
-        display_audio(self.samples, self.info["title"])
-
-
-def clips_from_folder(dir, types=definitions.AUDIO_FILE_TYPES, recursive=True, random_subset=None):
-    files = get_files_of_types(dir, types, recursive)
-    if random_subset is not None:
-        files = random.sample(files, random_subset)
-    clips = []
-    for file in files:
-        try:
-            clips.append(AudioClip.from_file(file))
-        except Exception as e:
-            print(f'ERROR: {e}')
-    return clips
-
 
 class GrainCloud:
 
@@ -104,13 +34,17 @@ class GrainCloud:
             clip.convert_to_channels(max_channels)
             if clip_processors is not None:
                 for processor in clip_processors:
-                    clip.apply_processor(processor)
+                    try:
+                        clip.apply_processor(processor)
+                    except Exception as e:
+                        print(f'ERROR: Processor {processor} failed on clip {clip.info["title"]} | {e}')
+                        
 
         samples = None
         if consolidate_processor is None:
-            samples = np.concatenate([clip.samples for clip in self.clips], axis=1)
+            samples = np.concatenate([clip.samples for clip in self.clips if clip.samples.shape[1] > 0], axis=1)
         else:
-            samples = consolidate_processor([clip.samples for clip in self.clips])  
+            samples = consolidate_processor([clip.samples for clip in self.clips if clip.samples.shape[1] > 0])  
         if samples is None:
             print(f'ERROR: Consolidate processor returned None')
             return None
@@ -131,3 +65,46 @@ class GrainCloud:
     def export(self, outpath, clip_processors=None, master_processors=None, consolidate_processor=None):
         clip = self.render(clip_processors, master_processors, consolidate_processor)
         clip.save(outpath, True)
+
+    def audio_features(self):
+        all_features = []
+        for clip in self.clips:
+            try:
+                features = extract_features(clip.samples[0])
+                all_features.append({
+                    'title' : clip.info['title'], 
+                    'duration': clip.info['duration'], 
+                    **features
+                })
+            except Exception as e:
+                print(f"failed to extract features for clip {clip.info['title']} | {e}")
+        return pd.DataFrame(all_features)
+    
+
+    def plot_features_3d(self, x=('mfccs', 0), y=('mfccs', 1), z=('mfccs', 2), size='rms', color=None):
+        df_fig = self.audio_features()
+        df_fig['x'] = df_fig[x[0]].apply(lambda d: d[x[1]])
+        df_fig['y'] = df_fig[y[0]].apply(lambda d: d[y[1]])
+        df_fig['z'] = df_fig[z[0]].apply(lambda d: d[z[1]])
+        fig = px.scatter_3d(df_fig, x='x', y='y', z='z', size=size, color=color, opacity=0.8, hover_data=['title', 'duration'])
+        return fig
+
+    def compute_mfccs(self, window_size=16384, hop_size=16384, n_mfcc=10):
+        all_features = []
+        for clip in self.clips:
+            features = windowed_mfccs(clip.samples[0], window_size=window_size, hop_size=hop_size, n_mfcc=n_mfcc)
+            for win_num, m in enumerate(features.T):
+                mfccs = { f'mfcc_{i}': x for i, x in enumerate(m) }
+                start_sample = win_num * hop_size
+                end_sample = start_sample + window_size
+                all_features.append(
+                    {
+                        'title' : clip.info['title'],
+                        'duration' : clip.samples.shape[1],
+                        'start_sample' : start_sample,
+                        'end_sample' : end_sample,
+                        'frac_idx' : (start_sample + (window_size // 2)) / clip.samples.shape[1],
+                        **mfccs
+                    }
+                )
+        return pd.DataFrame(all_features)
