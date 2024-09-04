@@ -1,9 +1,10 @@
 import argparse
 
-from hashing import hash_file, hash_dict, hash_list
+from samplepack_tools.hashing import hash_file, hash_dict, hash_list
 import samplepack_tools.definitions as definitions
 from samplepack_tools.utils import save_json, load_json, get_file_size, auto_title, get_mimetype
-from resources import create_package_resource, create_web_resource
+from samplepack_tools.publishing.resources import Resource, ResourceCategory
+
 
 # handles creating the sample package that can be distributed to TSVR
 def create_graincloud_metadata(
@@ -17,11 +18,11 @@ def create_graincloud_metadata(
         output_file=None
     ):
     # resources needs to be an array
-    if isinstance(resources, dict):
+    if isinstance(resources, Resource):
         resources = [resources]
     assert isinstance(resources, list)
-    assert filter(lambda x: x["category"] == "sample", resources) is not None
-    sample = list(filter(lambda x: x["category"] == "sample", resources))[0]
+    assert filter(lambda x: x.category == ResourceCategory.AUDIO_SAMPLE, resources) is not None
+    sample = list(filter(lambda x: x.category == ResourceCategory.AUDIO_SAMPLE, resources))[0]
     # the unique graincloud hash = hash(hash(sample), hash(parameters))
     hash = hash_list([sample["hash"], hash_dict(parameters)])
     metadata = {

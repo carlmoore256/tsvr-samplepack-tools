@@ -117,4 +117,7 @@ def upload_json_to_aws(data, bucket_name=env['AWS_BUCKET_NAME'], object_key=None
 
 
 def aws_web_provider(file_path):
+    if not env['AWS_BUCKET_NAME']:
+        print('AWS_BUCKET_NAME not set in .env')
+        return None
     return upload_file_to_aws(file_path, env['AWS_BUCKET_NAME'], None)['url']

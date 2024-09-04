@@ -7,8 +7,16 @@ from samplepack_tools.audio.audio_file import read_samples, write_samples
 from samplepack_tools.audio.features import rms, db_min_max
 from samplepack_tools.audio.signal_math import rms_to_db
 from samplepack_tools.audio.audio_file import audio_file_info
-from samplepack_tools.utils import display_audio, save_json, load_json, get_files_of_types, check_make_dir
+from samplepack_tools.utils import (
+    display_audio,
+    save_json,
+    load_json,
+    get_files_of_types,
+    check_make_dir,
+    auto_title,
+)
 import samplepack_tools.definitions as definitions
+from samplepack_tools.publishing.resources import Resource, ResourceCategory
 
 
 class AudioClip:
@@ -38,9 +46,23 @@ class AudioClip:
         }
         return AudioClip(None, info, samples)
 
+    def to_resource(self, title: str = None) -> Resource:
+        return Resource(
+            local_file=self.file,
+            category=ResourceCategory.AUDIO_SAMPLE,
+            title=(
+                title
+                if title is not None
+                else (
+                    self.info["title"]
+                    if self.info is not None
+                    else auto_title(self.file) if self.file is not None else "Untitled"
+                )
+            ),
+        )
+
     def update_info(self):
-        self.info["duration"] = round(
-            len(self.samples) / definitions.SAMPLE_RATE, 4)
+        self.info["duration"] = round(len(self.samples) / definitions.SAMPLE_RATE, 4)
         self.info["maxDBFS"] = round(np.max(rms_to_db(rms(self.samples))), 4)
 
     def apply_processor(self, processor):
@@ -53,8 +75,7 @@ class AudioClip:
         write_samples(self.samples, outpath)
         if include_metadata:
             self.info = audio_file_info(outpath)
-            metadata_path = os.path.join(
-                os.path.split(outpath)[0], "metadata.json")
+            metadata_path = os.path.join(os.path.split(outpath)[0], "metadata.json")
             save_json(self.info, metadata_path)
 
     # def
@@ -77,9 +98,11 @@ class AudioClip:
         display_audio(self.samples, self.info["title"])
 
 
-def clips_from_folder(dir, types=definitions.AUDIO_FILE_TYPES, recursive=True, random_subset=None):
+def clips_from_folder(
+    dir, types=definitions.AUDIO_FILE_TYPES, recursive=True, random_subset=None
+):
     files = get_files_of_types(dir, types, recursive)
-    print(f'Found {len(files)} files in {dir} (recursive={recursive})')
+    print(f"Found {len(files)} files in {dir} (recursive={recursive})")
     if random_subset is not None:
         files = random.sample(files, random_subset)
     clips = []
@@ -87,11 +110,13 @@ def clips_from_folder(dir, types=definitions.AUDIO_FILE_TYPES, recursive=True, r
         try:
             clips.append(AudioClip.from_file(file))
         except Exception as e:
-            print(f'ERROR: {e}')
+            print(f"ERROR: {e}")
     return clips
 
 
-def clips_from_file_or_folder(path, types=definitions.AUDIO_FILE_TYPES, recursive=True, random_subset=None):
+def clips_from_file_or_folder(
+    path, types=definitions.AUDIO_FILE_TYPES, recursive=True, random_subset=None
+):
     if os.path.isdir(path):
         return clips_from_folder(path, types, recursive, random_subset)
     else:
