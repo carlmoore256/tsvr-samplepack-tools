@@ -1,8 +1,9 @@
 import librosa
 import numpy as np
-import definitions
-from .signal_math import rms_to_db
 import pandas as pd
+
+from samplepack_tools.audio.signal_math import rms_to_db
+import samplepack_tools.definitions as definitions
 
 def extract_features(samples : np.ndarray, sample_rate : int=definitions.SAMPLE_RATE) -> dict:
     stft = np.abs(librosa.stft(samples))

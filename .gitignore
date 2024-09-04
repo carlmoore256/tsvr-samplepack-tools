@@ -3,3 +3,4 @@ samplepacks/*
 __pycache__/
 src/python/create_pack.py
 .vscode/
+.env

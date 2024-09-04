@@ -12,6 +12,3 @@ export interface NFTMetadata {
     };
     attributes: Attributes;
 }
-
-
-// function createMetadata()

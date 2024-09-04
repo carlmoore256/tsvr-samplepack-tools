@@ -1,8 +1,9 @@
 import librosa
 import numpy as np
-from analysis import sparsify_df
-import definitions
-from signal_processing.features import windowed_mfccs, samples_mfcc_df
+
+from samplepack_tools.audio.analysis import sparsify_df
+from samplepack_tools.audio.features import samples_mfcc_df
+import samplepack_tools.definitions as definitions
 
 def strip_silence(samples, db_thresh=-60, fade_samples=1000):
     is_mono = samples.shape[0] == 1
@@ -50,7 +51,7 @@ def cross_fade_all(clips, fade_samples=1000):
 
 
 def most_dissimilar_segments(samples, n_mfcc=20, window_size=512, hop_size=256, top_ratio=0.1, sample_rate=definitions.SAMPLE_RATE, crossfade_ratio=0.2):
-    mfcc = librosa.feature.mfcc(samples[0], sample_rate, n_mfcc=n_mfcc, n_fft=window_size, hop_length=hop_size)
+    mfcc = librosa.feature.mfcc(y=librosa.to_mono(samples) if len(samples.shape) > 1 else samples, sr=sample_rate, n_mfcc=n_mfcc, n_fft=window_size, hop_length=hop_size)
 
     # Calculate the statistical dissimilarity (Euclidean distance) between consecutive MFCC frames
     dissimilarity = np.linalg.norm(np.diff(mfcc, axis=1), axis=0)

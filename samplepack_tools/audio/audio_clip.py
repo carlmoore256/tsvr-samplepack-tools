@@ -1,15 +1,14 @@
-from pydub import AudioSegment
 import os
-from audio_file import read_samples, write_samples
-from signal_processing.features import rms, db_min_max
-from signal_processing.signal_math import rms_to_db
-from audio_file import get_audio_metadata, audio_file_info
-from definitions import SAMPLE_RATE
 from typing import List, Any
 import numpy as np
-from utils import display_audio, save_json, load_json, get_files_of_types, check_make_dir
-import definitions
 import random
+
+from samplepack_tools.audio.audio_file import read_samples, write_samples
+from samplepack_tools.audio.features import rms, db_min_max
+from samplepack_tools.audio.signal_math import rms_to_db
+from samplepack_tools.audio.audio_file import audio_file_info
+from samplepack_tools.utils import display_audio, save_json, load_json, get_files_of_types, check_make_dir
+import samplepack_tools.definitions as definitions
 
 
 class AudioClip:
@@ -23,7 +22,7 @@ class AudioClip:
         info = audio_file_info(file)
         samples = read_samples(file)
         return AudioClip(file, info, samples)
-    
+
     @staticmethod
     def from_samples(samples, title=None):
         if len(samples.shape) == 1:
@@ -32,15 +31,16 @@ class AudioClip:
             "file": None,
             "title": title,
             "bytes": None,
-            "duration": round(len(samples) / SAMPLE_RATE, 4),
-            "channels" : samples.shape[0],
+            "duration": round(len(samples) / definitions.SAMPLE_RATE, 4),
+            "channels": samples.shape[0],
             # "channels": 1 if len(samples.shape) == 1 else samples.shape[0],
             "maxDBFS": round(np.max(rms_to_db(rms(samples))), 4),
         }
         return AudioClip(None, info, samples)
 
     def update_info(self):
-        self.info["duration"] = round(len(self.samples) / SAMPLE_RATE, 4)
+        self.info["duration"] = round(
+            len(self.samples) / definitions.SAMPLE_RATE, 4)
         self.info["maxDBFS"] = round(np.max(rms_to_db(rms(self.samples))), 4)
 
     def apply_processor(self, processor):
@@ -53,16 +53,16 @@ class AudioClip:
         write_samples(self.samples, outpath)
         if include_metadata:
             self.info = audio_file_info(outpath)
-            metadata_path = os.path.join(os.path.split(outpath)[0], "metadata.json")
+            metadata_path = os.path.join(
+                os.path.split(outpath)[0], "metadata.json")
             save_json(self.info, metadata_path)
 
-    # def 
-    
+    # def
 
     @property
     def channels(self):
         return self.info["channels"]
-    
+
     def convert_to_channels(self, channels):
         if self.channels == channels:
             return
@@ -90,3 +90,9 @@ def clips_from_folder(dir, types=definitions.AUDIO_FILE_TYPES, recursive=True, r
             print(f'ERROR: {e}')
     return clips
 
+
+def clips_from_file_or_folder(path, types=definitions.AUDIO_FILE_TYPES, recursive=True, random_subset=None):
+    if os.path.isdir(path):
+        return clips_from_folder(path, types, recursive, random_subset)
+    else:
+        return [AudioClip.from_file(path)]

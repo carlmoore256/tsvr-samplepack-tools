@@ -1,0 +1,10 @@
+pydub
+numpy
+pandas
+librosa
+soundfile
+scikit-learn
+ipython
+matplotlib
+plotly
+boto3
