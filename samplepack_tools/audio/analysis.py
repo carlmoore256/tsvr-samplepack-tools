@@ -1,10 +1,8 @@
-from sklearn.cluster import KMeans
 import pandas as pd
 import numpy as np
-from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
-from signal_processing.features import windowed_mfccs
-import definitions
+from sklearn.cluster import KMeans
+
 
 def kmeans_quantize_distances(df, cluster_by, cluster_ratio=0.3):
     new_df = df.copy()
@@ -17,6 +15,7 @@ def kmeans_quantize_distances(df, cluster_by, cluster_ratio=0.3):
         new_df.loc[idx, 'label'] = label
         new_df.loc[idx, 'distance'] = transformed[idx, label]
     return new_df
+
 
 def sparsify_df(df, n_clusters, column_names):
     # Standardize the specified columns
@@ -31,9 +30,9 @@ def sparsify_df(df, n_clusters, column_names):
         cluster_indices = np.where(cluster_assignments == i)[0]
         # Find the index of the data point closest to the cluster center
         center = kmeans.cluster_centers_[i]
-        closest_index = cluster_indices[np.argmin(np.linalg.norm(scaled_columns[cluster_indices] - center, axis=1))]
+        closest_index = cluster_indices[np.argmin(np.linalg.norm(
+            scaled_columns[cluster_indices] - center, axis=1))]
         representative_samples.append(df.iloc[closest_index])
     sparser_df = pd.DataFrame(representative_samples)
     sparser_df.reset_index(drop=True, inplace=True)
     return sparser_df
-

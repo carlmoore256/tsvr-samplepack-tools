@@ -1,9 +1,10 @@
 from pydub import AudioSegment
-import os
-import librosa
-from definitions import SAMPLE_RATE
-import numpy as np
 import soundfile as sf
+import numpy as np
+import librosa
+import os
+
+from samplepack_tools.definitions import SAMPLE_RATE
 
 def read_samples(file_path, sample_rate=SAMPLE_RATE):
     samples, _ = librosa.load(file_path, sr=sample_rate, mono=False)
