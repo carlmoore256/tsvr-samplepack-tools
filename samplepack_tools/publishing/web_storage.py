@@ -5,6 +5,8 @@ import os
 
 env = dotenv_values(".env")
 
+print(env)
+
 # pinata metadata looks like this: '{"name": "MyFile", "keyvalues": {"company": "Pinata"}}'
 PINATA_FILE_URL = "https://api.pinata.cloud/pinning/pinFileToIPFS"
 PINATA_JSON_URL = "https://api.pinata.cloud/pinning/pinJSONToIPFS"

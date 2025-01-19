@@ -32,7 +32,7 @@ class AudioClip:
         return AudioClip(file, info, samples)
 
     @staticmethod
-    def from_samples(samples, title=None):
+    def from_samples(samples, title=None, samplerate=definitions.SAMPLE_RATE):
         if len(samples.shape) == 1:
             samples = np.expand_dims(samples, axis=0)
         info = {
@@ -41,6 +41,7 @@ class AudioClip:
             "bytes": None,
             "duration": round(len(samples) / definitions.SAMPLE_RATE, 4),
             "channels": samples.shape[0],
+            "samplerate": samplerate,
             # "channels": 1 if len(samples.shape) == 1 else samples.shape[0],
             "maxDBFS": round(np.max(rms_to_db(rms(samples))), 4),
         }
@@ -83,6 +84,10 @@ class AudioClip:
     @property
     def channels(self):
         return self.info["channels"]
+    
+    @property
+    def samplerate(self):
+        return self.info["samplerate"]
 
     def convert_to_channels(self, channels):
         if self.channels == channels:

@@ -49,6 +49,20 @@ def cross_fade_all(clips, fade_samples=1000):
         result = cross_fade(result, clips[i], fade_samples)
     return result
 
+def most_dissimilar_segments_clips(samples, n_mfcc=20, window_size=512, hop_size=256, top_ratio=0.1, sample_rate=definitions.SAMPLE_RATE):
+    mfcc = librosa.feature.mfcc(y=librosa.to_mono(samples) if len(samples.shape) > 1 else samples, sr=sample_rate, n_mfcc=n_mfcc, n_fft=window_size, hop_length=hop_size)
+    # Calculate the statistical dissimilarity (Euclidean distance) between consecutive MFCC frames
+    dissimilarity = np.linalg.norm(np.diff(mfcc, axis=1), axis=0)
+    top_k = int(len(dissimilarity) * top_ratio)
+    # Identify the most dissimilar frames
+    most_dissimilar_frame_indices = np.argpartition(-dissimilarity, top_k)[:top_k]
+    most_dissimilar_frame_indices.sort()
+    clips = []
+    for frame_index in most_dissimilar_frame_indices:
+        start = frame_index * hop_size
+        end = start + window_size
+        clips.append(samples[:, start:end])
+    return clips
 
 def most_dissimilar_segments(samples, n_mfcc=20, window_size=512, hop_size=256, top_ratio=0.1, sample_rate=definitions.SAMPLE_RATE, crossfade_ratio=0.2):
     mfcc = librosa.feature.mfcc(y=librosa.to_mono(samples) if len(samples.shape) > 1 else samples, sr=sample_rate, n_mfcc=n_mfcc, n_fft=window_size, hop_length=hop_size)
@@ -82,7 +96,7 @@ def most_dissimilar_segments(samples, n_mfcc=20, window_size=512, hop_size=256, 
 def normalize(samples):
     return samples / np.max(np.abs(samples))
 
-def sparsify_by_mfccs(samples, top_k=100, window_size=16384, hop_size=8192, n_mfcc=20, crossfade_ratio=0.2, sample_rate=definitions.SAMPLE_RATE):
+def sparsify_by_mfccs(samples, top_k=100, window_size=16384, hop_size=8192, n_mfcc=20, crossfade_ratio=0.2, sample_rate=definitions.SAMPLE_RATE, return_clips=False):
     df_mfccs = samples_mfcc_df(samples, window_size, hop_size, n_mfcc, sample_rate)
     mfcc_columns = [col for col in df_mfccs.columns if col.startswith('mfcc')]
     df_mfccs = sparsify_df(df_mfccs, top_k, mfcc_columns).sort_values(by='mfcc_0')
@@ -90,10 +104,16 @@ def sparsify_by_mfccs(samples, top_k=100, window_size=16384, hop_size=8192, n_mf
     output_samples = np.zeros((1, 0))
     clips = []
 
+
+    print(f'Found {len(df_mfccs)} segments | Clip now {(output_samples.shape[1]/samples.shape[1]) * 100}% size of original')
+
     for index, row in df_mfccs.iterrows():
         start_sample = int(row['start_sample'])
         end_sample = int(row['end_sample'])
         clips.append(samples[:, start_sample:end_sample])
+
+    if return_clips:
+        return clips
 
     if crossfade_ratio > 0:
         fade_samples = int(crossfade_ratio * window_size)

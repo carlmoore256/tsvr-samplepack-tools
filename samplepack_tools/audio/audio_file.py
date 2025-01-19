@@ -30,6 +30,7 @@ def get_audio_metadata(file):
         "duration": round(audio_file.duration_seconds, 4),
         "channels": audio_file.channels,
         "maxDBFS": round(audio_file.max_dBFS, 4),
+        "samplerate": audio_file.frame_rate
     }
 
 # get info metadata on a local audio file

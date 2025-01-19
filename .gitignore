@@ -4,3 +4,4 @@ __pycache__/
 src/python/create_pack.py
 .vscode/
 .env
+.DS_Store
